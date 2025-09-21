@@ -20,7 +20,7 @@ public class UI {
     public void ejecutarUnaVez() {
         try (Scanner in = new Scanner(System.in)) {
             System.out.println("=== Simulador Caso 2 — Interfaz ===");
-            int opcion = pedirOpcion(in);
+            int opcion = Opciones(in);
 
             try {
                 switch (opcion) {
@@ -37,21 +37,21 @@ public class UI {
         }
     }
 
-    // -------------------- Opción 1 --------------------
+    // Opción 1 
     private void ejecutarOpcion1(Scanner in) {
         System.out.println(">>> Opción 1 — Generación de referencias (trazas)");
 
-        int tp = pedirEnteroPositivo(in, "Tamaño de página TP (bytes): ");
-        int nproc = pedirEnteroPositivo(in, "Número de procesos NPROC: ");
+        int tp = enteroPositivo(in, "Tamaño de página TP (bytes): ");
+        int nproc = enteroPositivo(in, "Número de procesos NPROC: ");
 
         System.out.print("Tamaños por proceso (NFxNC separados por coma, ej.: 4x4,8x8): ");
         String tamsRaw = in.nextLine().trim();
-        List<int[]> sizes = parsearValidarTamanos(tamsRaw, nproc);
+        List<int[]> sizes = validarTamanios(tamsRaw, nproc);
 
-        int elemSize = pedirEnteroPositivoPorDefecto(in, "Tamaño de elemento (bytes) [Enter = 4]: ", 4);
+        int elemSize = porDefecto(in, "Tamaño de elemento (bytes) [Enter = 4]: ", 4);
 
-        Path outDir = pedirDirectorio(in, "Carpeta de salida para proc<i>.txt: ");
-        confirmarSobrescrituraSiHayArchivos(in, outDir); // y/n
+        Path outDir = directorio(in, "Carpeta de salida para proc<i>.txt: ");
+        sobrescrituraArchivos(in, outDir); // y/n
 
         // Instanciar SOLO la clase necesaria
         Opcion1 opcion1 = new Opcion1();
@@ -66,23 +66,23 @@ public class UI {
         System.out.println(">>> Opción 1 finalizada.");
     }
 
-    // -------------------- Opción 2 --------------------
+    //Opción 2
     private void ejecutarOpcion2(Scanner in) {
         System.out.println(">>> Opción 2 — Simulación de ejecución");
 
-        Path inDir = pedirDirectorio(in, "Carpeta que contiene proc<i>.txt: ");
-        List<Path> procFiles = listarProcFiles(inDir);
+        Path inDir = directorio(in, "Carpeta que contiene proc<i>.txt: ");
+        List<Path> procFiles = listaProcFiles(inDir);
         if (procFiles.isEmpty()) {
             throw new IllegalArgumentException("No se encontraron archivos proc<i>.txt en " + inDir);
         }
 
-        int nproc = pedirEnteroPositivoPorDefecto(in,
+        int nproc = porDefecto(in,
                 "Número de procesos [Enter = detectar por archivos (" + procFiles.size() + ")]: ",
                 procFiles.size());
 
-        validarProcFilesExactos(inDir, nproc);
+        validarProcFiles(inDir, nproc);
 
-        int totalFrames = pedirEnteroPositivo(in, "Número total de marcos (sugerido múltiplo de " + nproc + "): ");
+        int totalFrames = enteroPositivo(in, "Número total de marcos (sugerido múltiplo de " + nproc + "): ");
 
         // Instanciar SOLO la clase necesaria
         Opcion2 opcion2 = new Opcion2();
@@ -97,14 +97,12 @@ public class UI {
         System.out.println(">>> Opción 2 finalizada.");
     }
 
-    // -------------------- Helpers de validación / I/O --------------------
-
-    private int pedirOpcion(Scanner in) {
+    private int Opciones(Scanner in) {
         System.out.println("""
             ----------------------------
             Seleccione una opción:
-              [1] Opción 1 - Generar referencias (trazas)
-              [2] Opción 2 - Simular ejecución
+              [1] Opción 1
+              [2] Opción 2
               [0] Salir
             ----------------------------""");
         System.out.print("Opción: ");
@@ -115,7 +113,7 @@ public class UI {
         return val;
     }
 
-    private int pedirEnteroPositivo(Scanner in, String prompt) {
+    private int enteroPositivo(Scanner in, String prompt) {
         System.out.print(prompt);
         String s = in.nextLine().trim();
         if (!s.matches("\\d+")) throw new IllegalArgumentException("Debe ingresar un entero positivo.");
@@ -124,7 +122,7 @@ public class UI {
         return v;
     }
 
-    private int pedirEnteroPositivoPorDefecto(Scanner in, String prompt, int def) {
+    private int porDefecto(Scanner in, String prompt, int def) {
         System.out.print(prompt);
         String s = in.nextLine().trim();
         if (s.isEmpty()) return def;
@@ -134,7 +132,7 @@ public class UI {
         return v;
     }
 
-    private Path pedirDirectorio(Scanner in, String prompt) {
+    private Path directorio(Scanner in, String prompt) {
         System.out.print(prompt);
         String s = in.nextLine().trim();
         if (s.isEmpty()) throw new IllegalArgumentException("La ruta no puede ser vacía.");
@@ -144,8 +142,8 @@ public class UI {
         return p;
     }
 
-    // Confirmación estricta y/n
-    private boolean pedirSiNo(Scanner in, String prompt) {
+    // Confirmación y/n
+    private boolean Sino(Scanner in, String prompt) {
         System.out.print(prompt);
         String s = in.nextLine().trim();
         if (s.equals("y")) return true;
@@ -153,7 +151,7 @@ public class UI {
         throw new IllegalArgumentException("Responda 'y' o 'n'.");
     }
 
-    private List<int[]> parsearValidarTamanos(String csv, int esperados) {
+    private List<int[]> validarTamanios(String csv, int esperados) {
         if (csv.isEmpty()) throw new IllegalArgumentException("La lista de tamaños no puede estar vacía.");
         String[] parts = csv.split("\\s*,\\s*");
         if (parts.length != esperados) {
@@ -176,15 +174,15 @@ public class UI {
         return res;
     }
 
-    private void confirmarSobrescrituraSiHayArchivos(Scanner in, Path outDir) {
-        boolean any = !listarProcFiles(outDir).isEmpty();
+    private void sobrescrituraArchivos(Scanner in, Path outDir) {
+        boolean any = !listaProcFiles(outDir).isEmpty();
         if (any) {
-            boolean overwrite = pedirSiNo(in, "Se encontraron proc<i>.txt en esa carpeta. ¿Sobrescribir? (y/n): ");
+            boolean overwrite = Sino(in, "Se encontraron proc<i>.txt en esa carpeta. ¿Sobrescribir? (y/n): ");
             if (!overwrite) throw new IllegalArgumentException("Operación cancelada por el usuario.");
         }
     }
 
-    private List<Path> listarProcFiles(Path dir) {
+    private List<Path> listaProcFiles(Path dir) {
         try (var stream = Files.list(dir)) {
             return stream
                     .filter(p -> p.getFileName().toString().matches("proc\\d+\\.txt"))
@@ -195,7 +193,7 @@ public class UI {
         }
     }
 
-    private void validarProcFilesExactos(Path dir, int nproc) {
+    private void validarProcFiles(Path dir, int nproc) {
         // deben existir proc0.txt ... proc{nproc-1}.txt sin faltar ni sobrar
         for (int pid = 0; pid < nproc; pid++) {
             Path f = dir.resolve("proc" + pid + ".txt");
@@ -203,7 +201,7 @@ public class UI {
                 throw new IllegalArgumentException("Falta el archivo " + f.getFileName() + " en " + dir);
             }
         }
-        List<Path> all = listarProcFiles(dir);
+        List<Path> all = listaProcFiles(dir);
         if (all.size() != nproc) {
             throw new IllegalArgumentException("Se encontraron " + all.size() + " archivos proc<i>.txt, pero NPROC=" + nproc + ".");
         }
