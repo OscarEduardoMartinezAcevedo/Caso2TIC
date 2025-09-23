@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class UI {
 
@@ -11,7 +12,7 @@ public class UI {
         new UI().ejecutarUnaVez();
     }
 
-    // Ejecución única: pide datos, valida, invoca UNA de las dos opciones y termina.
+    // Pide datos, valida e invoca una opcion
     public void ejecutarUnaVez() {
         try (Scanner in = new Scanner(System.in)) {
             System.out.println("=== Simulador Caso 2 — Interfaz ===");
@@ -19,10 +20,18 @@ public class UI {
 
             try {
                 switch (opcion) {
-                    case 1 -> ejecutarOpcion1(in);
-                    case 2 -> ejecutarOpcion2(in);
-                    case 0 -> System.out.println("Saliendo...");
-                    default -> System.out.println("Opción no valida.");
+                    case 1:
+                        ejecutarOpcion1(in);
+                        break;
+                    case 2:
+                        ejecutarOpcion2(in);
+                        break;
+                    case 0:
+                        System.out.println("Saliendo...");
+                        break;
+                    default:
+                        System.out.println("Opción no valida.");
+                        break;
                 }
             } catch (IllegalArgumentException iae) {
                 System.out.println("[ERROR] " + iae.getMessage());
@@ -32,22 +41,18 @@ public class UI {
         }
     }
 
-    // ==========================
-    // Opción 1 — Generación de referencias (trazas)
-    // Debe LEER un archivo de configuración con TP, NPROC, TAMS (NFxNC,...)
-    // ==========================
+    // Generacion de referencias (trazas)
+    // Lee un archivo de configuracion con TP, NPROC, TAMS
     private void ejecutarOpcion1(Scanner in) {
         System.out.println("Opcion 1 — Generacion de referencias (trazas)");
-        Path configPath = archivo(in, "Ruta del archivo de configuración (p. ej., config.txt): ");
+        Path configPath = archivo(in, "Ruta del archivo de configuración: ");
         Config cfg = leerConfig(configPath); // valida TP>0, NPROC>0, TAMS formato NFxNC y cantidad == NPROC
-
-        // Tamaño de elemento SIEMPRE 4 bytes (enteros de 32 bits)
         final int elemSize = 4;
 
         Path outDir = directorio(in, "Carpeta de salida para proc<i>.txt: ");
-        sobrescrituraArchivos(in, outDir); // confirma y/n
+        sobrescrituraArchivos(in, outDir); // confirmar por y/n
 
-        // Instanciar SOLO la clase necesaria
+        // Se instancia solo una clase
         Opcion1 opcion1 = new Opcion1();
 
         boolean ok = opcion1.runOpcion1(cfg.tp, cfg.nproc, cfg.sizes, elemSize, outDir);
@@ -58,54 +63,46 @@ public class UI {
 
         System.out.println("Opcion 1 finalizada.");
     }
-
-    // ==========================
-    // Opción 2 — Simulación de ejecución
-    // Debe correr con #marcos múltiplo de #procesos y cargar dv de proc<i>.txt
-    // ==========================
+    // Simulacion de ejecucion
+    // Debe correr con #marcos multiplo de #procesos y cargar dv de proc<i>.txt
     private void ejecutarOpcion2(Scanner in) {
-        System.out.println(">>> Opcion 2 — Simulacion de ejecucion");
+        System.out.println("Opcion 2 — Simulacion de ejecucion");
+        
+        try {
+            int totalFrames = enteroPositivo(in, "Numero total de marcos: ");
+            int nproc = enteroPositivo(in, "Numero de procesos: ");
+            
+            if (totalFrames % nproc != 0) {
+                throw new IllegalArgumentException("El numero de marcos (" + totalFrames +
+                        ") debe ser MULTIPLO de NPROC (" + nproc + ").");
+            }
+            
+            Path inDir = directorio(in, "Carpeta que contiene proc<i>.txt: ");
+            validarProcFiles(inDir, nproc);
 
-        Path inDir = directorio(in, "Carpeta que contiene proc<i>.txt: ");
-        List<Path> procFiles = listaProcFiles(inDir);
-        if (procFiles.isEmpty()) {
-            throw new IllegalArgumentException("No se encontraron archivos proc<i>.txt en " + inDir);
+            Opcion2 opcion2 = new Opcion2();
+            boolean ok = opcion2.runOpcion2(nproc, totalFrames, inDir);
+            
+            if (!ok) {
+                String why = opcional(opcion2.getLastError(), "Fallo en Opcion 2.");
+                throw new IllegalArgumentException(why);
+            }
+            
+            System.out.println("Opcion 2 finalizada.");
+        } catch (Exception e) {
+            System.out.println("[ERROR DETALLADO] " + e.getClass().getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
-
-        int nproc = porDefecto(in,
-                "Numero de procesos [Enter = detectar por archivos (" + procFiles.size() + ")]: ",
-                procFiles.size());
-
-        validarProcFiles(inDir, nproc);
-
-        int totalFrames = enteroPositivo(in, "Numero total de marcos (DEBE ser multiplo de " + nproc + "): ");
-        if (totalFrames % nproc != 0) {
-            throw new IllegalArgumentException("El numero de marcos (" + totalFrames +
-                    ") debe ser MULTIPLO de NPROC (" + nproc + ").");
-        }
-
-        Opcion2 opcion2 = new Opcion2();
-
-        boolean ok = opcion2.runOpcion2(nproc, totalFrames, inDir);
-        if (!ok) {
-            String why = opcional(opcion2.getLastError(), "Fallo en Opcion 2.");
-            throw new IllegalArgumentException(why);
-        }
-
-        System.out.println("Opcion 2 finalizada.");
     }
-
-    // --------------------------
-    // Utilidades de entrada
-    // --------------------------
     private int Opciones(Scanner in) {
-        System.out.println("""
-            ----------------------------
-            Seleccione una opcion:
-              [1] Opcion 1
-              [2] Opcion 2
-              [0] Salir
-            ----------------------------""");
+        System.out.println(
+            "----------------------------\n" +
+            "Seleccione una opcion:\n" +
+            "  [1] Opcion 1\n" +
+            "  [2] Opcion 2\n" +
+            "  [0] Salir\n" +
+            "----------------------------"
+        );
         System.out.print("Opcion: ");
         String line = in.nextLine().trim();
         if (!line.matches("\\d+")) throw new IllegalArgumentException("Debe ingresar un numero (0,1,2).");
@@ -122,17 +119,6 @@ public class UI {
         if (v <= 0) throw new IllegalArgumentException("El valor debe ser > 0.");
         return v;
     }
-
-    private int porDefecto(Scanner in, String prompt, int def) {
-        System.out.print(prompt);
-        String s = in.nextLine().trim();
-        if (s.isEmpty()) return def;
-        if (!s.matches("\\d+")) throw new IllegalArgumentException("Debe ingresar un entero positivo.");
-        int v = Integer.parseInt(s);
-        if (v <= 0) throw new IllegalArgumentException("El valor debe ser > 0.");
-        return v;
-    }
-
     private Path directorio(Scanner in, String prompt) {
         System.out.print(prompt);
         String s = in.nextLine().trim();
@@ -149,17 +135,17 @@ public class UI {
         if (s.isEmpty()) throw new IllegalArgumentException("Ruta vacia.");
         Path p = Paths.get(s);
         if (!Files.exists(p)) throw new IllegalArgumentException("Ruta inexistente: " + p);
-        if (!Files.isRegularFile(p)) throw new IllegalArgumentException("No es un archivo regular: " + p);
+        if (!Files.isRegularFile(p)) throw new IllegalArgumentException("No es un archivo valido: " + p);
         return p;
     }
 
-    // Confirmación y/n (acepta también s/n y mayúsculas)
+    // Confirmacion por y/n
     private boolean Sino(Scanner in, String prompt) {
         System.out.print(prompt);
         String s = in.nextLine().trim().toLowerCase();
-        if (s.equals("y") || s.equals("s")) return true;
+        if (s.equals("y") ) return true;
         if (s.equals("n")) return false;
-        throw new IllegalArgumentException("Responda y/n (o s/n).");
+        throw new IllegalArgumentException("Responda y/n");
     }
 
     private List<int[]> validarTamanios(String csv, int esperados) {
@@ -173,12 +159,12 @@ public class UI {
         for (String px : parts) {
             var m = pat.matcher(px.trim());
             if (!m.matches()) {
-                throw new IllegalArgumentException("Formato invalido '" + px + "'. Use NFxNC, p. ej., 8x8.");
+                throw new IllegalArgumentException("Formato invalido '" + px + "'. Use NFxNC");
             }
             int nf = Integer.parseInt(m.group(1));
             int nc = Integer.parseInt(m.group(2));
             if (nf <= 0 || nc <= 0) {
-                throw new IllegalArgumentException("NF y NC deben ser > 0 (dato invalido en '" + px + "').");
+                throw new IllegalArgumentException("NF y NC deben ser > 0 ,dato invalido en: '" + px + "'.");
             }
             res.add(new int[]{nf, nc});
         }
@@ -188,8 +174,8 @@ public class UI {
     private void sobrescrituraArchivos(Scanner in, Path outDir) {
         boolean any = !listaProcFiles(outDir).isEmpty();
         if (any) {
-            boolean overwrite = Sino(in, "Se encontraron proc<i>.txt en esa carpeta. ¿Sobrescribirlos? (y/n): ");
-            if (!overwrite) throw new IllegalArgumentException("Operacion cancelada");
+            boolean overwrite = Sino(in, "Se encontraron proc<i>.txt en esa carpeta. ¿ Desea sobrescribirlos? (y/n): ");
+            if (!overwrite) throw new IllegalArgumentException("Operacion cancelada por usuario");
         }
     }
 
@@ -198,14 +184,13 @@ public class UI {
             return stream
                     .filter(p -> p.getFileName().toString().matches("proc\\d+\\.txt"))
                     .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             return List.of();
         }
     }
 
     private void validarProcFiles(Path dir, int nproc) {
-        // deben existir proc0.txt ... proc{nproc-1}.txt sin faltar ni sobrar
         for (int pid = 0; pid < nproc; pid++) {
             Path f = dir.resolve("proc" + pid + ".txt");
             if (!Files.exists(f)) {
@@ -222,9 +207,7 @@ public class UI {
         return (s == null || s.isBlank()) ? fallback : s;
     }
 
-    // --------------------------
-    // Configuración Opción 1
-    // --------------------------
+    // Lectura de config
     private static final class Config {
         final int tp;
         final int nproc;
@@ -249,7 +232,7 @@ public class UI {
                 kv.put(k, v);
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("No se pudo leer el archivo de configuración: " + e.getMessage());
+            throw new IllegalArgumentException("Fallo en lectura del archivo de configuración: " + e.getMessage());
         }
 
         String tpS   = kv.get("TP");

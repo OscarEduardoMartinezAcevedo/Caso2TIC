@@ -3,38 +3,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.List;
 
-/**
- * Opcion1 — Generación de referencias (trazas) para C = A + B.
- * Cumple el formato del anexo:
- *   Cabecera:
- *     TP=<int>
- *     NF=<int>
- *     NC=<int>
- *     NR=<int>   (== 3 * NF * NC)
- *     NP=<int>   (== ceil(3 * NF * NC * 4 / TP))
- *   Cuerpo (por celda i,j en row-major):
- *     M1:[i-j],<page>,<offset>,r
- *     M2:[i-j],<page>,<offset>,r
- *     M3:[i-j],<page>,<offset>,w
- */
+//Generación de referencias
 public class Opcion1 {
     private String lastError;
 
     public String getLastError() { return lastError; }
     private boolean fail(String msg) { this.lastError = msg; return false; }
 
-    /**
-     * Genera proc<i>.txt para cada proceso.
-     *
-     * @param tp       tamaño de página (bytes) > 0
-     * @param nproc    número de procesos > 0
-     * @param sizes    lista de tamaños por proceso; cada item es int[]{NF,NC}, ambos > 0
-     * @param elemSize tamaño del elemento EN BYTES (debe ser 4 en este caso)
-     * @param outDir   carpeta de salida existente y escribible
-     * @return true si todos los archivos se escribieron correctamente; en otro caso false + getLastError()
-     */
+    //Genera proc<i>.txt para cada proceso, verifica si los datos son correctos    
     public boolean runOpcion1(int tp, int nproc, List<int[]> sizes, int elemSize, Path outDir) {
-        // Por contrato con la UI, asumimos datos válidos; mantenemos defensas mínimas.
         if (tp <= 0 || nproc <= 0 || elemSize != 4 || sizes == null || sizes.size() != nproc || outDir == null) {
             return fail("Parametros invalidos para Opcion1 (verifique con la UI).");
         }
@@ -80,7 +57,7 @@ public class Opcion1 {
                 }
             }
 
-            // Escribir a proc<i>.txt
+            // Escribie los procs
             Path outFile = outDir.resolve("proc" + pid + ".txt");
             try {
                 Files.writeString(outFile, sb.toString(), StandardCharsets.UTF_8,
@@ -108,7 +85,7 @@ public class Opcion1 {
     }
 
     private static void appendAccess(StringBuilder sb, int mId, int i, int j, long page, long offset, char mode) {
-        // Formato exacto del anexo: Mx:[i-j],<page>,<offset>,<r|w>
+        // Formato: Mx:[i-j],<page>,<offset>,<r|w>
         sb.append('M').append(mId).append(":[")
           .append(i).append('-').append(j).append("],")
           .append(page).append(',').append(offset).append(',')
